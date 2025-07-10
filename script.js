@@ -39,4 +39,3 @@ async function sendToAPI(imageFile) {
   const data = await res.json();
   result.innerText = JSON.stringify(data, null, 2);
 }
-
