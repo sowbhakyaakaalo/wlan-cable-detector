@@ -1,72 +1,82 @@
 const video = document.getElementById('video');
-const captureBtn = document.getElementById('captureBtn');
-const uploadInput = document.getElementById('uploadInput');
-const canvas = document.getElementById('canvas');
-const result = document.getElementById('result');
+const videoCanvas = document.getElementById('videoCanvas');
+const videoCtx = videoCanvas.getContext('2d');
+const detectBtn = document.getElementById('detectBtn');
 
-// Start the camera feed
+const uploadInput = document.getElementById('uploadInput');
+const uploadCanvas = document.getElementById('uploadCanvas');
+const uploadCtx = uploadCanvas.getContext('2d');
+
+// Start video stream
 navigator.mediaDevices.getUserMedia({ video: true })
   .then(stream => {
     video.srcObject = stream;
-  })
-  .catch(err => {
-    console.error("Camera error:", err);
+    video.play();
   });
 
-// Capture from live camera
-captureBtn.onclick = async () => {
-  const context = canvas.getContext('2d');
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  canvas.toBlob(async (blob) => {
-    await sendToAPI(blob);
+// Set canvas size to video size
+video.addEventListener('loadedmetadata', () => {
+  videoCanvas.width = video.videoWidth;
+  videoCanvas.height = video.videoHeight;
+});
+
+// Handle camera detect
+detectBtn.addEventListener('click', () => {
+  videoCtx.drawImage(video, 0, 0, videoCanvas.width, videoCanvas.height);
+  videoCanvas.toBlob(blob => {
+    sendImage(blob, videoCtx, videoCanvas);
   }, 'image/jpeg');
-};
+});
 
-// Upload image file
-uploadInput.onchange = async (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    await sendToAPI(file);
-  }
-};
+// Handle upload detect
+uploadInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    uploadCanvas.width = img.width;
+    uploadCanvas.height = img.height;
+    uploadCtx.drawImage(img, 0, 0);
+    imgToBlob(img).then(blob => sendImage(blob, uploadCtx, uploadCanvas));
+  };
+  img.src = URL.createObjectURL(file);
+});
 
-// Send to Ultralytics API through your serverless function
-async function sendToAPI(imageFile) {
-  result.innerText = "Detecting...";
-
+// Send image to Ultralytics API
+async function sendImage(blob, ctx, canvas) {
   const formData = new FormData();
-  formData.append('file', imageFile);
+  formData.append('file', blob);
 
-  const res = await fetch('/api/detect', {
+  const response = await fetch('/api/detect', {
     method: 'POST',
     body: formData
   });
 
-  const data = await res.json();
-  result.innerText = JSON.stringify(data, null, 2);
+  const result = await response.json();
+  drawBoxes(result, ctx, canvas);
+}
 
-  // Draw the uploaded image or snapshot to canvas
-  const img = new Image();
-  img.onload = () => {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+// Draw bounding boxes & labels
+function drawBoxes(result, ctx, canvas) {
+  ctx.lineWidth = 2;
+  ctx.font = "16px Arial";
+  ctx.strokeStyle = "#00FF00";
+  ctx.fillStyle = "#00FF00";
 
-    // === Draw bounding boxes if present ===
-    if (data.image && data.image[0] && data.image[0].objects) {
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 2;
-      ctx.font = '16px Arial';
-      ctx.fillStyle = 'red';
+  result.images[0].results.forEach(det => {
+    const [x1, y1, x2, y2] = [det.box.x, det.box.y, det.box.width, det.box.height];
+    ctx.beginPath();
+    ctx.rect(x1, y1, x2 - x1, y2 - y1);
+    ctx.stroke();
+    ctx.fillText(`${det.name} (${(det.confidence * 100).toFixed(1)}%)`, x1, y1 - 5);
+  });
+}
 
-      data.image[0].objects.forEach(obj => {
-        // NOTE: Adjust box format if needed!
-        const [x, y, w, h] = obj.box;  // This depends on your API’s box format
-        ctx.strokeRect(x, y, w, h);
-        ctx.fillText(`${obj.name} (${(obj.confidence * 100).toFixed(1)}%)`, x, y - 5);
-      });
-    }
-  };
-
-  img.src = URL.createObjectURL(imageFile);
+// Helper: convert image to blob
+function imgToBlob(img) {
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = img.width;
+  tempCanvas.height = img.height;
+  tempCanvas.getContext('2d').drawImage(img, 0, 0);
+  return new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg'));
 }
