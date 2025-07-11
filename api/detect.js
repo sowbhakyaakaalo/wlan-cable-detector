@@ -1,11 +1,13 @@
+// ✅ api/detect.js
+import formidable from 'formidable';
+import fs from 'fs';
+import FormData from 'form-data'; // ✅ Make sure you installed this!
+
 export const config = {
   api: {
     bodyParser: false,
   },
 };
-
-import formidable from 'formidable';
-import fs from 'fs';
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
@@ -22,18 +24,21 @@ export default async function handler(req, res) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch("https://predict.ultralytics.com", {
+      // ✅ ✅ ✅ THIS WAS MISSING!
+      formData.append('model', process.env.ULTRA_MODEL_URL);
+
+      const response = await fetch('https://predict.ultralytics.com', {
         method: 'POST',
         headers: {
-          'x-api-key': process.env.ULTRA_API_KEY
+          'x-api-key': process.env.ULTRA_API_KEY,
+          ...formData.getHeaders(), // ✅ Required for multipart upload!
         },
-        body: formData
+        body: formData,
       });
 
       const data = await response.json();
       res.status(200).json(data);
     });
-
   } else {
     res.status(405).send('Method Not Allowed');
   }
