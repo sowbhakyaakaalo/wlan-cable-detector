@@ -22,18 +22,11 @@ export default async function handler(req, res) {
       });
     });
 
-    // Debugging log (remove in production)
-    console.log('Uploaded files:', JSON.stringify(files, null, 2));
-
-    if (!files || !files.file || !files.file[0]) {
-      return res.status(400).json({ error: 'No valid file uploaded' });
+    if (!files?.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const uploadedFile = files.file[0];
-    if (!uploadedFile.filepath) {
-      return res.status(400).json({ error: 'File has no path' });
-    }
-
+    const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
     const fileBuffer = fs.readFileSync(uploadedFile.filepath);
 
     const apiResponse = await fetch('https://predict.ultralytics.com', {
@@ -47,13 +40,18 @@ export default async function handler(req, res) {
         imgsz: 640,
         conf: 0.25,
         iou: 0.45,
-        file: fileBuffer.toString('base64'),
+        file: {
+          name: uploadedFile.originalFilename,
+          data: fileBuffer.toString('base64'),
+          type: uploadedFile.mimetype
+        }
       }),
     });
 
     if (!apiResponse.ok) {
       const errorText = await apiResponse.text();
-      throw new Error(`Ultralytics API error: ${apiResponse.status} - ${errorText}`);
+      console.error('Ultralytics API Error:', errorText);
+      throw new Error(`API Error: ${apiResponse.status}`);
     }
 
     const data = await apiResponse.json();
@@ -67,7 +65,6 @@ export default async function handler(req, res) {
     res.status(500).json({
       error: 'Detection failed',
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 }
