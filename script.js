@@ -1,4 +1,5 @@
 let usingFrontCamera = false;
+let stream = null;
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -6,36 +7,42 @@ const switchBtn = document.getElementById('switch');
 const detectBtn = document.getElementById('detect');
 const uploadInput = document.getElementById('upload');
 
-// Camera setup
+// Enhanced camera setup with mobile support
 async function startCamera() {
-  if (window.stream) {
-    window.stream.getTracks().forEach(track => track.stop());
+  // Stop existing stream
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
   }
 
   const constraints = {
     video: {
-      facingMode: usingFrontCamera ? 'user' : 'environment',
+      facingMode: usingFrontCamera ? 'user' : { exact: 'environment' },
       width: { ideal: 1280 },
       height: { ideal: 720 }
     }
   };
 
   try {
-    window.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = window.stream;
-    video.onloadedmetadata = () => {
-      video.play();
-    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints)
+      .catch(() => navigator.mediaDevices.getUserMedia({ video: true })); // Fallback
+    
+    video.srcObject = stream;
+    video.onloadedmetadata = () => video.play();
   } catch (err) {
     console.error('Camera error:', err);
-    alert('Could not access the camera. Please check permissions.');
+    alert('Camera access denied. Please enable camera permissions.');
   }
 }
 
-// Switch camera
-switchBtn.onclick = () => {
+// Mobile-friendly camera switch
+switchBtn.onclick = async () => {
   usingFrontCamera = !usingFrontCamera;
-  startCamera();
+  switchBtn.disabled = true;
+  try {
+    await startCamera();
+  } finally {
+    switchBtn.disabled = false;
+  }
 };
 
 // Capture and detect
@@ -93,7 +100,7 @@ async function sendToAPI() {
     
     const data = await response.json();
     drawBoxes(data);
-    displayResults(data); // Add this line to show text results
+    displayResults(data);
     
   } catch (error) {
     console.error('Detection error:', error);
@@ -109,20 +116,22 @@ function drawBoxes(data) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
-  if (!data || !data.results || data.results.length === 0) {
-    console.log('No detections found');
+  if (!data?.results?.length) {
     return;
   }
 
   ctx.lineWidth = 3;
   ctx.font = '16px Arial';
-  ctx.strokeStyle = '#00FF00';
-  ctx.fillStyle = '#00FF00';
 
   data.results.forEach(result => {
     const { box, name, confidence } = result;
+    const isConnected = confidence > 0.5;
     
-    // Convert box coordinates to canvas dimensions
+    // Set colors based on connection status
+    ctx.strokeStyle = isConnected ? '#4CAF50' : '#F44336';
+    ctx.fillStyle = isConnected ? '#4CAF50' : '#F44336';
+    
+    // Convert box coordinates
     const x = box.x1 * canvas.width;
     const y = box.y1 * canvas.height;
     const width = (box.x2 - box.x1) * canvas.width;
@@ -132,7 +141,7 @@ function drawBoxes(data) {
     ctx.strokeRect(x, y, width, height);
     
     // Draw label background
-    const text = `${name} (${(confidence * 100).toFixed(1)}%)`;
+    const text = `${isConnected ? 'CONNECTED' : 'DISCONNECTED'} (${Math.round(confidence * 100)}%)`;
     const textWidth = ctx.measureText(text).width;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(x - 1, y - 20, textWidth + 10, 20);
@@ -143,40 +152,35 @@ function drawBoxes(data) {
   });
 }
 
-// NEW FUNCTION: Display text results
 function displayResults(data) {
-  // Create or get results container
-  let resultsContainer = document.getElementById('results');
-  if (!resultsContainer) {
-    resultsContainer = document.createElement('div');
-    resultsContainer.id = 'results';
-    document.body.appendChild(resultsContainer);
-  }
-
-  // Clear previous results
+  const resultsContainer = document.getElementById('results') || createResultsContainer();
   resultsContainer.innerHTML = '';
-
-  if (!data || !data.results || data.results.length === 0) {
+  
+  if (!data?.results?.length) {
     resultsContainer.innerHTML = '<div class="no-results">No cables detected</div>';
     return;
   }
 
-  // Add each result
   data.results.forEach(result => {
     const resultElement = document.createElement('div');
-    resultElement.className = 'result';
-    
-    const status = result.confidence > 0.5 ? 'CONNECTED' : 'DISCONNECTED';
-    const confidence = Math.round(result.confidence * 100);
+    resultElement.className = `result ${result.confidence > 0.5 ? 'connected' : 'disconnected'}`;
     
     resultElement.innerHTML = `
-      <div class="status ${status.toLowerCase()}">${status}</div>
-      <div class="confidence">Confidence: ${confidence}%</div>
-      <div class="type">Type: ${result.name || 'WLAN Cable'}</div>
+      <div class="status">${result.confidence > 0.5 ? 'CONNECTED' : 'DISCONNECTED'}</div>
+      <div class="confidence">Confidence: ${Math.round(result.confidence * 100)}%</div>
+      <div class="coordinates">Position: (${Math.round(result.box.x1 * 100)}, ${Math.round(result.box.y1 * 100)})</div>
     `;
     
     resultsContainer.appendChild(resultElement);
   });
+}
+
+function createResultsContainer() {
+  const container = document.createElement('div');
+  container.id = 'results';
+  container.className = 'results-container';
+  document.body.appendChild(container);
+  return container;
 }
 
 // Initialize
