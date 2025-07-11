@@ -31,13 +31,14 @@ canvas {
 }
 
 .buttons {
-  margin-top: 20px;
-  margin-bottom: 20px;
+  margin: 20px 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 
 button, .upload-btn {
-  display: inline-block;
-  margin: 8px;
   padding: 10px 15px;
   font-size: 16px;
   cursor: pointer;
@@ -48,6 +49,10 @@ button, .upload-btn {
   transition: background 0.3s;
 }
 
+.upload-btn {
+  display: inline-block;
+}
+
 .upload-btn input {
   display: none;
 }
@@ -56,49 +61,69 @@ button:hover, .upload-btn:hover {
   background: #0056b3;
 }
 
-/* Results styling */
-#results {
+button:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+.results-container {
   max-width: 640px;
   margin: 20px auto;
   text-align: left;
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .result {
-  padding: 10px;
+  padding: 12px;
   margin: 10px 0;
-  border-left: 4px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.result.connected {
+  border-left: 4px solid #4CAF50;
+}
+
+.result.disconnected {
+  border-left: 4px solid #F44336;
 }
 
 .status {
   font-weight: bold;
-  font-size: 1.2em;
+  font-size: 1.1em;
   margin-bottom: 5px;
 }
 
-.status.connected {
-  color: #28a745;
-}
-
-.status.disconnected {
-  color: #dc3545;
-}
-
-.confidence {
-  color: #6c757d;
+.confidence, .coordinates {
+  color: #666;
   font-size: 0.9em;
 }
 
-.type {
-  margin-top: 5px;
-}
-
 .no-results {
-  color: #6c757d;
+  color: #666;
   text-align: center;
   font-style: italic;
-  padding: 10px;
+  padding: 15px;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .video-container {
+    width: 100%;
+  }
+  
+  video, canvas {
+    width: 100%;
+    height: auto;
+  }
+  
+  .buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  button, .upload-btn {
+    width: 90%;
+    max-width: 300px;
+  }
 }
