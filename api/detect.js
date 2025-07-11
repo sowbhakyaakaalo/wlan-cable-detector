@@ -1,35 +1,40 @@
 export const config = {
-  runtime: "edge",
+  api: {
+    bodyParser: false,
+  },
 };
 
-export default async function handler(req) {
-  const { readable, writable } = new TransformStream();
-  const formData = await req.formData();
-  const file = formData.get('file');
+import formidable from 'formidable';
+import fs from 'fs';
 
-  const body = new FormData();
-  body.set('model', process.env.ULTRA_MODEL_URL);
-  body.set('imgsz', 640);
-  body.set('conf', 0.25);
-  body.set('iou', 0.45);
-  body.set('file', file);
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    const form = new formidable.IncomingForm();
 
-  const response = await fetch('https://predict.ultralytics.com', {
-    method: 'POST',
-    headers: {
-      'x-api-key': process.env.ULTRA_API_KEY
-    },
-    body: body
-  });
+    form.parse(req, async (err, fields, files) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Error parsing the file.' });
+      }
 
-  const result = await response.text();
-  const writer = writable.getWriter();
-  writer.write(new TextEncoder().encode(result));
-  writer.close();
+      const file = fs.createReadStream(files.file[0].filepath);
 
-  return new Response(readable, {
-    headers: { "Content-Type": "application/json" }
-  });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch("https://predict.ultralytics.com", {
+        method: 'POST',
+        headers: {
+          'x-api-key': process.env.ULTRA_API_KEY
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      res.status(200).json(data);
+    });
+
+  } else {
+    res.status(405).send('Method Not Allowed');
+  }
 }
-
-

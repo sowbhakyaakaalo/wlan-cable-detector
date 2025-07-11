@@ -1,82 +1,108 @@
+let usingFrontCamera = false;
 const video = document.getElementById('video');
-const videoCanvas = document.getElementById('videoCanvas');
-const videoCtx = videoCanvas.getContext('2d');
-const detectBtn = document.getElementById('detectBtn');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const switchBtn = document.getElementById('switch');
+const detectBtn = document.getElementById('detect');
+const uploadInput = document.getElementById('upload');
 
-const uploadInput = document.getElementById('uploadInput');
-const uploadCanvas = document.getElementById('uploadCanvas');
-const uploadCtx = uploadCanvas.getContext('2d');
+async function startCamera() {
+  if (window.stream) {
+    window.stream.getTracks().forEach(track => track.stop());
+  }
 
-// Start video stream
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    video.srcObject = stream;
-    video.play();
-  });
-
-// Set canvas size to video size
-video.addEventListener('loadedmetadata', () => {
-  videoCanvas.width = video.videoWidth;
-  videoCanvas.height = video.videoHeight;
-});
-
-// Handle camera detect
-detectBtn.addEventListener('click', () => {
-  videoCtx.drawImage(video, 0, 0, videoCanvas.width, videoCanvas.height);
-  videoCanvas.toBlob(blob => {
-    sendImage(blob, videoCtx, videoCanvas);
-  }, 'image/jpeg');
-});
-
-// Handle upload detect
-uploadInput.addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const img = new Image();
-  img.onload = () => {
-    uploadCanvas.width = img.width;
-    uploadCanvas.height = img.height;
-    uploadCtx.drawImage(img, 0, 0);
-    imgToBlob(img).then(blob => sendImage(blob, uploadCtx, uploadCanvas));
+  const constraints = {
+    video: {
+      facingMode: usingFrontCamera ? 'user' : 'environment'
+    }
   };
-  img.src = URL.createObjectURL(file);
+
+  try {
+    window.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = window.stream;
+  } catch (err) {
+    alert('Camera error: ' + err);
+  }
+}
+
+switchBtn.onclick = () => {
+  usingFrontCamera = !usingFrontCamera;
+  startCamera();
+};
+
+detectBtn.onclick = async () => {
+  captureAndDetect(video);
+};
+
+uploadInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width > 640 ? 640 : img.width;
+      canvas.height = img.height * (canvas.width / img.width);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      sendToAPI();
+    };
+    img.src = URL.createObjectURL(file);
+  }
 });
 
-// Send image to Ultralytics API
-async function sendImage(blob, ctx, canvas) {
-  const formData = new FormData();
-  formData.append('file', blob);
+function captureAndDetect(source) {
+  const scale = 640 / source.videoWidth;
+  const width = 640;
+  const height = source.videoHeight * scale;
 
-  const response = await fetch('/api/detect', {
-    method: 'POST',
-    body: formData
-  });
+  canvas.width = width;
+  canvas.height = height;
 
-  const result = await response.json();
-  drawBoxes(result, ctx, canvas);
+  ctx.drawImage(source, 0, 0, width, height);
+  sendToAPI();
 }
 
-// Draw bounding boxes & labels
-function drawBoxes(result, ctx, canvas) {
+async function sendToAPI() {
+  canvas.toBlob(async blob => {
+    const formData = new FormData();
+    formData.append('file', blob);
+
+    const res = await fetch('/api/detect', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    drawBoxes(data);
+  }, 'image/jpeg');
+}
+
+function drawBoxes(data) {
+  if (!data.images) return;
+
   ctx.lineWidth = 2;
-  ctx.font = "16px Arial";
-  ctx.strokeStyle = "#00FF00";
-  ctx.fillStyle = "#00FF00";
+  ctx.font = '18px Arial';
+  ctx.strokeStyle = 'lime';
+  ctx.fillStyle = 'lime';
 
-  result.images[0].results.forEach(det => {
-    const [x1, y1, x2, y2] = [det.box.x, det.box.y, det.box.width, det.box.height];
-    ctx.beginPath();
-    ctx.rect(x1, y1, x2 - x1, y2 - y1);
-    ctx.stroke();
-    ctx.fillText(`${det.name} (${(det.confidence * 100).toFixed(1)}%)`, x1, y1 - 5);
+  data.images[0].results.forEach(result => {
+    const box = result.box;
+    let x, y, w, h;
+
+    // Support both formats
+    if (box.width && box.height) {
+      x = box.x;
+      y = box.y;
+      w = box.width;
+      h = box.height;
+    } else if (box.x1 !== undefined) {
+      x = box.x1;
+      y = box.y1;
+      w = box.x2 - box.x1;
+      h = box.y2 - box.y1;
+    }
+
+    ctx.strokeRect(x, y, w, h);
+    ctx.fillText(result.name, x + 5, y - 5);
   });
 }
 
-// Helper: convert image to blob
-function imgToBlob(img) {
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = img.width;
-  tempCanvas.height = img.height;
-  tempCanvas.getContext('2d').drawImage(img, 0, 0);
-  return new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg'));
-}
+startCamera();
