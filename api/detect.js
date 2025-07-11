@@ -4,15 +4,7 @@ export const config = {
   },
 };
 
-// Use explicit require syntax with proper error handling
-let formidable;
-try {
-  formidable = require('formidable');
-} catch (e) {
-  console.error('Failed to require formidable:', e);
-  formidable = require('formidable').default || require('formidable');
-}
-
+const formidable = require('formidable');
 const fs = require('fs');
 const fetch = require('node-fetch');
 
@@ -22,22 +14,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = new formidable.IncomingForm();
-    
-    const { files } = await new Promise((resolve, reject) => {
+    const form = formidable();
+    const [fields, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
-        resolve({ fields, files });
+        resolve([fields, files]);
       });
     });
 
-    if (!files?.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+    // Debugging log (remove in production)
+    console.log('Uploaded files:', JSON.stringify(files, null, 2));
+
+    if (!files || !files.file || !files.file[0]) {
+      return res.status(400).json({ error: 'No valid file uploaded' });
     }
 
-    const fileBuffer = fs.readFileSync(files.file[0].filepath);
+    const uploadedFile = files.file[0];
+    if (!uploadedFile.filepath) {
+      return res.status(400).json({ error: 'File has no path' });
+    }
 
-    const response = await fetch('https://predict.ultralytics.com', {
+    const fileBuffer = fs.readFileSync(uploadedFile.filepath);
+
+    const apiResponse = await fetch('https://predict.ultralytics.com', {
       method: 'POST',
       headers: {
         'x-api-key': process.env.ULTRA_API_KEY,
@@ -52,22 +51,23 @@ export default async function handler(req, res) {
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    if (!apiResponse.ok) {
+      const errorText = await apiResponse.text();
+      throw new Error(`Ultralytics API error: ${apiResponse.status} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await apiResponse.json();
     res.status(200).json(data);
 
-    // Clean up temp file
-    fs.unlink(files.file[0].filepath, () => {});
+    // Clean up
+    fs.unlink(uploadedFile.filepath, () => {});
 
   } catch (error) {
-    console.error('Server Error:', error);
+    console.error('Full error:', error);
     res.status(500).json({
       error: 'Detection failed',
       details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 }
