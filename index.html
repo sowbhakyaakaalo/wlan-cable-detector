@@ -1,27 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>📡 WLAN Cable Detector</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="UTF-8" />
+  <title>WLAN Cable Detector</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>📡 WLAN Cable Detector</h1>
+  <h1>📸 WLAN Cable Detector</h1>
 
-  <div class="container">
-    <div class="video-section">
-      <video id="video" autoplay playsinline></video>
-      <canvas id="videoCanvas"></canvas>
-      <button id="detectBtn">📸 Detect from Camera</button>
-    </div>
+  <div class="video-container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+  </div>
 
-    <div class="upload-section">
-      <input type="file" id="uploadInput" accept="image/*"/>
-      <canvas id="uploadCanvas" width="640" height="480"></canvas>
-    </div>
+  <div class="buttons">
+    <button id="switch">🔄 Switch Camera</button>
+    <button id="detect">✅ Capture & Detect</button>
   </div>
 
   <script src="script.js"></script>
 </body>
 </html>
+
