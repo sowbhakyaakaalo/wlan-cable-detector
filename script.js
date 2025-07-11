@@ -6,6 +6,7 @@ const switchBtn = document.getElementById('switch');
 const detectBtn = document.getElementById('detect');
 const uploadInput = document.getElementById('upload');
 
+// Camera setup
 async function startCamera() {
   if (window.stream) {
     window.stream.getTracks().forEach(track => track.stop());
@@ -13,34 +14,45 @@ async function startCamera() {
 
   const constraints = {
     video: {
-      facingMode: usingFrontCamera ? 'user' : 'environment'
+      facingMode: usingFrontCamera ? 'user' : 'environment',
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
     }
   };
 
   try {
     window.stream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = window.stream;
+    video.onloadedmetadata = () => {
+      video.play();
+    };
   } catch (err) {
-    alert('Camera error: ' + err);
+    console.error('Camera error:', err);
+    alert('Could not access the camera. Please check permissions.');
   }
 }
 
+// Switch camera
 switchBtn.onclick = () => {
   usingFrontCamera = !usingFrontCamera;
   startCamera();
 };
 
-detectBtn.onclick = async () => {
+// Capture and detect
+detectBtn.onclick = () => {
   captureAndDetect(video);
 };
 
+// Handle file upload
 uploadInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) {
     const img = new Image();
     img.onload = () => {
-      canvas.width = img.width > 640 ? 640 : img.width;
-      canvas.height = img.height * (canvas.width / img.width);
+      const maxWidth = 640;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       sendToAPI();
     };
@@ -49,63 +61,86 @@ uploadInput.addEventListener('change', (e) => {
 });
 
 function captureAndDetect(source) {
-  const scale = 640 / source.videoWidth;
-  const width = 640;
-  const height = source.videoHeight * scale;
-
-  canvas.width = width;
-  canvas.height = height;
-
-  ctx.drawImage(source, 0, 0, width, height);
+  const maxWidth = 640;
+  const scale = maxWidth / source.videoWidth;
+  canvas.width = maxWidth;
+  canvas.height = source.videoHeight * scale;
+  
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
   sendToAPI();
 }
 
 async function sendToAPI() {
-  canvas.toBlob(async blob => {
+  try {
+    detectBtn.disabled = true;
+    detectBtn.textContent = 'Processing...';
+    
+    const blob = await new Promise(resolve => {
+      canvas.toBlob(resolve, 'image/jpeg', 0.9);
+    });
+    
     const formData = new FormData();
-    formData.append('file', blob);
-
-    const res = await fetch('/api/detect', {
+    formData.append('file', blob, 'detection.jpg');
+    
+    const response = await fetch('/api/detect', {
       method: 'POST',
       body: formData
     });
-
-    const data = await res.json();
+    
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+    
+    const data = await response.json();
     drawBoxes(data);
-  }, 'image/jpeg');
+    
+  } catch (error) {
+    console.error('Detection error:', error);
+    alert('Detection failed: ' + error.message);
+  } finally {
+    detectBtn.disabled = false;
+    detectBtn.textContent = '✅ Capture & Detect';
+  }
 }
 
 function drawBoxes(data) {
-  if (!data.images) {
-    alert('No detection results!');
+  // Clear previous drawings
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  
+  if (!data || !data.results || data.results.length === 0) {
+    console.log('No detections found');
     return;
   }
 
-  ctx.lineWidth = 2;
-  ctx.font = '18px Arial';
-  ctx.strokeStyle = 'lime';
-  ctx.fillStyle = 'lime';
+  ctx.lineWidth = 3;
+  ctx.font = '16px Arial';
+  ctx.strokeStyle = '#00FF00';
+  ctx.fillStyle = '#00FF00';
 
-  data.images[0].results.forEach(result => {
-    const box = result.box;
-    let x, y, w, h;
-
-    if (box.width && box.height) {
-      x = box.x;
-      y = box.y;
-      w = box.width;
-      h = box.height;
-    } else if (box.x1 !== undefined) {
-      x = box.x1;
-      y = box.y1;
-      w = box.x2 - box.x1;
-      h = box.y2 - box.y1;
-    }
-
-    ctx.strokeRect(x, y, w, h);
-    ctx.fillText(result.name, x + 5, y - 5);
+  data.results.forEach(result => {
+    const { box, name, confidence } = result;
+    
+    // Convert box coordinates to canvas dimensions
+    const x = box.x1 * canvas.width;
+    const y = box.y1 * canvas.height;
+    const width = (box.x2 - box.x1) * canvas.width;
+    const height = (box.y2 - box.y1) * canvas.height;
+    
+    // Draw bounding box
+    ctx.strokeRect(x, y, width, height);
+    
+    // Draw label background
+    const text = `${name} (${(confidence * 100).toFixed(1)}%)`;
+    const textWidth = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(x - 1, y - 20, textWidth + 10, 20);
+    
+    // Draw text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(text, x + 5, y - 5);
   });
 }
 
-
+// Initialize
 startCamera();
