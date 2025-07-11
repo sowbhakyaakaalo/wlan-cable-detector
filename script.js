@@ -78,17 +78,30 @@ async function sendToAPI() {
 function drawBoxes(data) {
   if (!data.images) return;
 
+  ctx.lineWidth = 2;
+  ctx.font = '18px Arial';
+  ctx.strokeStyle = 'lime';
+  ctx.fillStyle = 'lime';
+
   data.images[0].results.forEach(result => {
     const box = result.box;
-    const name = result.name;
+    let x, y, w, h;
 
-    ctx.strokeStyle = 'lime';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(box.x, box.y, box.width, box.height);
+    // Support both formats
+    if (box.width && box.height) {
+      x = box.x;
+      y = box.y;
+      w = box.width;
+      h = box.height;
+    } else if (box.x1 !== undefined) {
+      x = box.x1;
+      y = box.y1;
+      w = box.x2 - box.x1;
+      h = box.y2 - box.y1;
+    }
 
-    ctx.fillStyle = 'lime';
-    ctx.font = '18px Arial';
-    ctx.fillText(name, box.x + 5, box.y - 5);
+    ctx.strokeRect(x, y, w, h);
+    ctx.fillText(result.name, x + 5, y - 5);
   });
 }
 
