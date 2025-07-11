@@ -93,6 +93,7 @@ async function sendToAPI() {
     
     const data = await response.json();
     drawBoxes(data);
+    displayResults(data); // Add this line to show text results
     
   } catch (error) {
     console.error('Detection error:', error);
@@ -139,6 +140,42 @@ function drawBoxes(data) {
     // Draw text
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(text, x + 5, y - 5);
+  });
+}
+
+// NEW FUNCTION: Display text results
+function displayResults(data) {
+  // Create or get results container
+  let resultsContainer = document.getElementById('results');
+  if (!resultsContainer) {
+    resultsContainer = document.createElement('div');
+    resultsContainer.id = 'results';
+    document.body.appendChild(resultsContainer);
+  }
+
+  // Clear previous results
+  resultsContainer.innerHTML = '';
+
+  if (!data || !data.results || data.results.length === 0) {
+    resultsContainer.innerHTML = '<div class="no-results">No cables detected</div>';
+    return;
+  }
+
+  // Add each result
+  data.results.forEach(result => {
+    const resultElement = document.createElement('div');
+    resultElement.className = 'result';
+    
+    const status = result.confidence > 0.5 ? 'CONNECTED' : 'DISCONNECTED';
+    const confidence = Math.round(result.confidence * 100);
+    
+    resultElement.innerHTML = `
+      <div class="status ${status.toLowerCase()}">${status}</div>
+      <div class="confidence">Confidence: ${confidence}%</div>
+      <div class="type">Type: ${result.name || 'WLAN Cable'}</div>
+    `;
+    
+    resultsContainer.appendChild(resultElement);
   });
 }
 
