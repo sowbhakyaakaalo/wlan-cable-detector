@@ -76,7 +76,10 @@ async function sendToAPI() {
 }
 
 function drawBoxes(data) {
-  if (!data.images) return;
+  if (!data.images) {
+    alert('No detection results!');
+    return;
+  }
 
   ctx.lineWidth = 2;
   ctx.font = '18px Arial';
@@ -87,7 +90,6 @@ function drawBoxes(data) {
     const box = result.box;
     let x, y, w, h;
 
-    // Support both formats
     if (box.width && box.height) {
       x = box.x;
       y = box.y;
@@ -104,5 +106,6 @@ function drawBoxes(data) {
     ctx.fillText(result.name, x + 5, y - 5);
   });
 }
+
 
 startCamera();
