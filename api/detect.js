@@ -4,9 +4,17 @@ export const config = {
   },
 };
 
-// Use require syntax instead of import to ensure compatibility
-const formidable = require('formidable');
+// Use explicit require syntax with proper error handling
+let formidable;
+try {
+  formidable = require('formidable');
+} catch (e) {
+  console.error('Failed to require formidable:', e);
+  formidable = require('formidable').default || require('formidable');
+}
+
 const fs = require('fs');
+const fetch = require('node-fetch');
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,9 +22,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = formidable();
+    const form = new formidable.IncomingForm();
     
-    const { fields, files } = await new Promise((resolve, reject) => {
+    const { files } = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
         resolve({ fields, files });
@@ -29,8 +37,7 @@ export default async function handler(req, res) {
 
     const fileBuffer = fs.readFileSync(files.file[0].filepath);
 
-    const apiUrl = 'https://predict.ultralytics.com';
-    const response = await fetch(apiUrl, {
+    const response = await fetch('https://predict.ultralytics.com', {
       method: 'POST',
       headers: {
         'x-api-key': process.env.ULTRA_API_KEY,
@@ -60,7 +67,7 @@ export default async function handler(req, res) {
     console.error('Server Error:', error);
     res.status(500).json({
       error: 'Detection failed',
-      details: error.message.replace(/[\n\r]/g, ' '), // Remove newlines for cleaner output
+      details: error.message,
     });
   }
 }
