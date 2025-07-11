@@ -14,12 +14,14 @@ h1 {
   position: relative;
   display: inline-block;
   max-width: 90%;
+  margin-bottom: 20px;
 }
 
 video, canvas {
   width: 640px;
   max-width: 100%;
   border: 2px solid #333;
+  background: #000;
 }
 
 canvas {
@@ -30,6 +32,7 @@ canvas {
 
 .buttons {
   margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 button, .upload-btn {
@@ -42,6 +45,7 @@ button, .upload-btn {
   color: #fff;
   border: none;
   border-radius: 4px;
+  transition: background 0.3s;
 }
 
 .upload-btn input {
@@ -52,3 +56,49 @@ button:hover, .upload-btn:hover {
   background: #0056b3;
 }
 
+/* Results styling */
+#results {
+  max-width: 640px;
+  margin: 20px auto;
+  text-align: left;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.result {
+  padding: 10px;
+  margin: 10px 0;
+  border-left: 4px solid #ccc;
+}
+
+.status {
+  font-weight: bold;
+  font-size: 1.2em;
+  margin-bottom: 5px;
+}
+
+.status.connected {
+  color: #28a745;
+}
+
+.status.disconnected {
+  color: #dc3545;
+}
+
+.confidence {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.type {
+  margin-top: 5px;
+}
+
+.no-results {
+  color: #6c757d;
+  text-align: center;
+  font-style: italic;
+  padding: 10px;
+}
