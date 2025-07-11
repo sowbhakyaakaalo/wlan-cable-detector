@@ -1,7 +1,6 @@
 body {
   font-family: Arial, sans-serif;
-  background: #f8f9fa;
-  color: #333;
+  background: #f5f5f5;
   text-align: center;
   margin: 0;
   padding: 2rem;
@@ -13,60 +12,39 @@ h1 {
 
 .container {
   display: flex;
-  justify-content: center;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 2rem;
 }
 
 .video-section, .upload-section {
+  position: relative;
   background: #fff;
   padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
-video {
-  width: 320px;
-  height: 240px;
-  background: #000;
-  border-radius: 4px;
-}
-
-canvas {
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 640px;
-  height: 480px;
-  display: block;
-  margin-top: 1rem;
-}
-
-button, input[type="file"] {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+video, canvas {
+  max-width: 100%;
+  border-radius: 8px;
 }
 
 button {
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 4px;
   background: #0070f3;
-  color: white;
+  color: #fff;
+  cursor: pointer;
 }
 
 button:hover {
   background: #005bb5;
 }
 
-pre#result {
-  text-align: left;
-  margin: 2rem auto 0;
-  padding: 1rem;
-  background: #fff;
-  width: 80%;
-  max-width: 800px;
-  overflow-x: auto;
-  border-radius: 8px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+input[type="file"] {
+  margin-top: 1rem;
 }
